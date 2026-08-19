@@ -1,0 +1,13 @@
+[package]
+name = "c2o3fe2_operator"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { workspace = true }
+dotenvy="0.15.7"
+futures-util="0.3"
+tokio-tungstenite="0.30"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-std","sync", "time"] }
+http = "1.0"
+rand = "0.9"
