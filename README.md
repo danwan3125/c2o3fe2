@@ -1,4 +1,5 @@
 # C2O3Fe2 (COFe): An Educational Command & Control Framework Prototype
+This is a Rust C2 Framework aimed towards learning Rust, asynchronous programming, and red team architecture/techniques. 
 ## Getting Started
 ## Architectural Model Used
 ## Components
