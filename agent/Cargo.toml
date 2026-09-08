@@ -4,6 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { version = "1", features = [] }
+rand="0.8"
+libc = "0.2.189"
+ureq = { version = "3.4.0", features=["json"]}
+uuid = { version = "1", features = ["v4", "serde"] }
 
 [profile.release]
 strip = true
@@ -11,3 +18,9 @@ lto = true
 panic = "abort"
 codegen-units=1
 opt-level="z"
+
+[target.x86_64-unknown-linux-musl]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.x86_64-pc-windows-gnu]
+rustflags = ["-C", "target-feature=+crt-static"]

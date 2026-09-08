@@ -1,16 +1,21 @@
 # C2O3Fe2 (COFe): An Educational Command & Control Framework Prototype
-## Deployment Guide
+## Getting Started
 ## Architectural Model Used
-
-## Core Capabilities/Features and Implementation Details
-MITRE ATT&CK Technique ID noted in parentheses where appropriate
-1. 
-2. 
-3. 
-4. 
+## Components
+1. Axum teamserver
++ Used as medium over which messages are passed between agent and operator
++ Cues operator commands to be sent to agent 
++ Stores Agent messages and provides them to operator on demand
+2. Operator client
++ Uses tokio Websockets to connect to the teamserver 
++ Uses exponential backoff to avoid heavy traffic on disconnect and reconnect
+3. Operator (WIP)
++ Currently uses libc to collect system information and ureq (chosen for being more lightweight than other packages) to sent to teamserver
++ Currently working on tasking engine to carry out commands
+  - Plan to implement cd, pwd, and ls commands first, then upload, download, and file execution functionalities.
 ## Testing Setup Used  
 ## Operational Limitations 
-## TO-DO
+## Future Roadmap (after MVP)
 ### Refactoring
 1. Separate Teamserver code into separate files for routes, implant routes, teamserver routes
 2. Improve error handling by implementing IntoResponse instead
